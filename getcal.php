@@ -109,10 +109,17 @@ foreach ($file as $line) {
             $id = $event->id;
             $email = $calendarId;
             $gcaluID = $email.$id;//メアドとGoogleのイベントIDを組み合わせる理由は、GoogleのイベントIDは、一つの予定で複数人に招待を行った場合に同じものが割り振られる為
+            $end = $event->end->dateTime; //先にendを取得するは後述$allDayDurationの計算の為
+                    if (empty($end)) {
+                    $endDate = $event->end->date;
+                    }
             $start = $event->start->dateTime;
-            $end = $event->end->dateTime;
+                    if (empty($start)) {
+                    $startDate = $event->start->date;
+                    $allDayDuration = (strtotime($endDate) - strtotime($startDate))/ ( 60 );//分単位で取得する
+                    }
 
-            if (empty($start)) {
+            if ($status == 'cancelled') {
                 //カレンダー削除時は過去に飛ばしてみえなくする処理
                 //カレンダーが削除されるとstartとendの時間が消える。
                 //本当は消えた場合にSFのレコードを削除したいのだが、deleteをextraIDで実行出来なかったので苦肉の策
@@ -124,8 +131,17 @@ foreach ($file as $line) {
         $sObject_Event[$recid] = new stdclass(); //必須
         $sObject_Event[$recid]->googleCalEventID2__c = $gcaluID;//Eventにカスタム項目を作成し、外部IDとして利用する・重複なしのフラグを立てる。これをキーにしてデータのupsertを行います
         $sObject_Event[$recid]->OWNERID = $OwnerId;
+        if(empty($start)) {
+        $sObject_Event[$recid]->ActivityDate = $startDate;
+        $sObject_Event[$recid]->IsAllDayEvent = true;
+        $sObject_Event[$recid]->DurationInMinutes = $allDayDuration;
+        }else{
         $sObject_Event[$recid]->StartDateTime = $start;
+        }
+        if(empty($end)) {
+        }else{
         $sObject_Event[$recid]->EndDateTime = $end;
+        }
         $sObject_Event[$recid]->Subject = $event->getSummary();
         $sObject_Event[$recid]->Description = $event->description;
         $sObject_Event[$recid]->Location = $event->location;
